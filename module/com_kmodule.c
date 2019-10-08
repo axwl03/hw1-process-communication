@@ -224,15 +224,18 @@ struct msg_data mailbox_read(struct mailbox *m)
     struct msg_data msg;
     if(m->type == 0) 	/*unqueue*/
     {
-        msg = *(m->msg_data_head);
-        msg.next = NULL;
+        if(mailbox_isEmpty(m))
+            memset(&msg, 0, sizeof(msg));
+        else
+        {
+            msg = *(m->msg_data_head);
+            msg.next = NULL;
+        }
     }
     else 				/*queue*/
     {
         if(mailbox_isEmpty(m))
-        {
             memset(&msg, 0, sizeof(msg));
-        }
         else
         {
             msg = *(m->msg_data_head);
