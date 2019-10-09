@@ -25,9 +25,11 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Apple pie");
 MODULE_DESCRIPTION("A Simple Hello World module");
 
-void mailbox_init(struct mailbox *m);
-void mailbox_add(struct mailbox *m, struct msg_data *msg);	/*insert msg_data at the rear of the queue*/
-bool mailbox_del(struct mailbox *m);	/*remove msg_data at the front of the queue*/
+void mailbox_init(struct mailbox *m, unsigned char type);
+void mailbox_add(struct mailbox *m, struct msg_data *msg);	/*insert msg_data at the rear of the mailbox*/
+bool mailbox_del(struct mailbox *m);	/*remove msg_data at the front of the mailbox*/
 void mailbox_print(struct mailbox *m);
+bool mailbox_isEmpty(struct mailbox *m);	/*check if mailbox is empty*/
+bool mailbox_isFull(struct mailbox *m);	/*check if mailbox is full*/
 
 #endif  //ifndef COM_KMODULE_H
