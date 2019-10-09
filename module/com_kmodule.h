@@ -2,6 +2,8 @@
 #define COM_KMODULE_H
 
 #include <linux/module.h>
+#include <linux/kernel.h>
+#include <linux/slab.h>
 
 struct mailbox
 {
@@ -22,5 +24,10 @@ struct msg_data
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Apple pie");
 MODULE_DESCRIPTION("A Simple Hello World module");
+
+void mailbox_init(struct mailbox *m);
+void mailbox_add(struct mailbox *m, struct msg_data *msg);	/*insert msg_data at the rear of the queue*/
+bool mailbox_del(struct mailbox *m);	/*remove msg_data at the front of the queue*/
+void mailbox_print(struct mailbox *m);
 
 #endif  //ifndef COM_KMODULE_H
