@@ -2,8 +2,11 @@
 #define COM_KMODULE_H
 
 #include <linux/module.h>
-#include <linux/kernel.h>
+#include <net/sock.h>
+#include <linux/netlink.h>
 #include <linux/slab.h>
+#define NETLINK_USER 30
+#define USER_PORT 100
 
 struct mailbox
 {
@@ -19,6 +22,14 @@ struct msg_data
 {
     char buf[256];
     struct msg_data *next;
+};
+
+int send_usrmsg(char *buf, int len);
+static void netlink_recv_msg(struct sk_buff *skb);
+
+struct netlink_kernel_cfg cfg =
+{
+    .input = netlink_recv_msg,
 };
 
 MODULE_LICENSE("GPL");
