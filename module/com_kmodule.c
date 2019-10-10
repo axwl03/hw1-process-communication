@@ -21,13 +21,18 @@ void mailbox_init(struct mailbox *m, unsigned char type)
     m->msg_data_head = NULL;
     m->msg_data_tail = NULL;
 }
-void mailbox_add(struct mailbox *m, struct msg_data *msg)
+bool mailbox_add(struct mailbox *m, struct msg_data *msg)
 {
     msg->next = NULL;
     if(mailbox_isEmpty(m))
     {
         m->msg_data_head = msg;
         m->msg_data_tail = msg;
+    }
+    else if(mailbox_isFull(m))
+    {
+        printk(KERN_INFO "size %d: add fail.\n", m->msg_data_count);
+        return false;
     }
     else
     {
@@ -36,6 +41,7 @@ void mailbox_add(struct mailbox *m, struct msg_data *msg)
     }
     m->msg_data_count++;
     printk(KERN_INFO "size %d: add success.\n", m->msg_data_count);
+    return true;
 }
 bool mailbox_del(struct mailbox *m)
 {
@@ -77,4 +83,35 @@ bool mailbox_isFull(struct mailbox *m)
         return false;
     else
         return true;
+}
+struct msg_data mailbox_read(struct mailbox *m)
+{
+    struct msg_data msg;
+    if(m->type == 0) 	/*unqueue*/
+    {
+        msg = *(m->msg_data_head);
+        msg.next = NULL;
+        if(!mailbox_isEmpty(m))
+            mailbox_del(m);
+    }
+    else 				/*queue*/
+    {
+        if(mailbox_isEmpty(m))
+        {
+            memset(&msg, 0, sizeof(msg));
+        }
+        else
+        {
+            msg = *(m->msg_data_head);
+            msg.next = NULL;
+            mailbox_del(m);
+        }
+    }
+    return msg;
+}
+bool mailbox_write(struct mailbox *m, struct msg_data msg)
+{
+    struct msg_data *p = kmalloc(sizeof(msg), GFP_KERNEL);
+    *p = msg;
+    return mailbox_add(m, p);
 }
