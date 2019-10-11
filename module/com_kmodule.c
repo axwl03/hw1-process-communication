@@ -28,7 +28,7 @@ static void __exit com_kmodule_exit(void)
 module_init(com_kmodule_init);
 module_exit(com_kmodule_exit);
 
-int send_usrmsg(char *buf, int len)
+int send_usrmsg(int pid, char *buf, int len)
 {
     struct sk_buff *nl_skb;
     struct nlmsghdr *nlh;
@@ -50,22 +50,27 @@ int send_usrmsg(char *buf, int len)
     }
 
     memcpy(nlmsg_data(nlh), buf, len);
-    ret = netlink_unicast(nlsk, nl_skb, USER_PORT, MSG_DONTWAIT);
+    ret = netlink_unicast(nlsk, nl_skb, pid, MSG_DONTWAIT);
+    printk(KERN_INFO "ret: %d pid: %d buf: %s\n", ret, pid, buf);
     return ret;
 }
 static void netlink_recv_msg(struct sk_buff *skb)
 {
     struct nlmsghdr *nlh = NULL;
+    int pid;
     char *umsg = NULL;
     char *kmsg = "Hello user!!\n";
     if(skb->len >= nlmsg_total_size(0))
     {
-        nlh = nlmsg_hdr(skb);
+        //    nlh = nlmsg_hdr(skb);
+        nlh = (struct nlmsghdr *)skb->data;
+        pid = NETLINK_CREDS(skb)->pid;
+        printk(KERN_INFO "pid: %d\n", pid);
         umsg = NLMSG_DATA(nlh);
         if(umsg)
         {
             printk(KERN_INFO "kernel recv from user: %s\n", umsg);
-            send_usrmsg(kmsg, strlen(kmsg));
+            send_usrmsg(pid, kmsg, strlen(kmsg));
         }
     }
 }

@@ -20,6 +20,8 @@ int skfd;
 socklen_t len = sizeof(struct sockaddr_nl);
 struct nlmsghdr *nlh = NULL;
 struct sockaddr_nl saddr, daddr;
+struct iovec iov;
+struct msghdr msg2;
 
 void send_kernel(char *msg);
 void recv_kernel(struct user_msg_info *u_info_p);

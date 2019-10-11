@@ -6,7 +6,6 @@
 #include <linux/netlink.h>
 #include <linux/slab.h>
 #define NETLINK_USER 30
-#define USER_PORT 100
 
 struct mailbox
 {
@@ -24,7 +23,7 @@ struct msg_data
     struct msg_data *next;
 };
 
-int send_usrmsg(char *buf, int len);
+int send_usrmsg(int pid, char *buf, int len);
 static void netlink_recv_msg(struct sk_buff *skb);
 
 struct netlink_kernel_cfg cfg =
