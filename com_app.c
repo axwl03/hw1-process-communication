@@ -3,7 +3,6 @@
 int main(int argc, char *argv[])
 {
     char umsg[MAX_LEN];
-    struct user_msg_info u_info;
 
     if(argc != 3)
     {
@@ -33,8 +32,7 @@ int main(int argc, char *argv[])
     }
     memset(&saddr, 0, sizeof(saddr));
     saddr.nl_family = AF_NETLINK;
-    saddr.nl_pid = getpid()/*atoi(argv[1])*/;
-    printf("testing: %d\n", saddr.nl_pid);
+    saddr.nl_pid = getpid();
     saddr.nl_groups = 0;
     if(bind(skfd, (struct sockaddr *)&saddr, sizeof(saddr)) != 0)
     {
@@ -63,12 +61,22 @@ int main(int argc, char *argv[])
 
     //registration
     send_kernel(umsg);
-    recv_kernel(&u_info);
+    recv_kernel();
+    if(strcmp("Success", (char *)NLMSG_DATA(nlh)) == 0)
+        own_id = atoi(argv[1]);
 
-    while(0)
+    char test_str[10];
+    int ret = 0;
+    while(1)
     {
-        //send
-        //send ack from kernel
+        readline(umsg);
+        if((ret = sscanf(umsg, "Send %*d %10s", test_str)))
+        {
+            send_kernel(umsg);
+            recv_kernel();
+        }
+        else if(strcmp(umsg, "exit") == 0)
+            break;
 
         //recv
         //recv data or "Fail"
@@ -83,9 +91,24 @@ void send_kernel(char *m)
     printf("send kernel: %s\n", m);
     sendmsg(skfd, &msg, 0);
 }
-void recv_kernel(struct user_msg_info *u_info_p)
+void recv_kernel()
 {
+    memset(NLMSG_DATA(nlh), 0, MAX_LEN);
     printf("recv kernel:\n");
     recvmsg(skfd, &msg, 0);
     printf("%s\n", (char *)NLMSG_DATA(nlh));
+}
+void readline(char *str)
+{
+    char ch;
+    for(int i = 0; i < 300; ++i)
+    {
+        ch = getchar();
+        if(ch == '\n')
+        {
+            str[i] = '\0';
+            return;
+        }
+        str[i] = ch;
+    }
 }

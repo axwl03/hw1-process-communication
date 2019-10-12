@@ -6,6 +6,7 @@
 #include <linux/netlink.h>
 #include <linux/slab.h>
 #define NETLINK_USER 30
+#define MAX_USER 10
 
 struct mailbox
 {
@@ -21,6 +22,12 @@ struct msg_data
 {
     char buf[256];
     struct msg_data *next;
+};
+
+struct mailbox_id
+{
+    int id;
+    struct mailbox *m;
 };
 
 int send_usrmsg(int pid, char *buf, int len);
@@ -43,4 +50,6 @@ bool mailbox_isEmpty(struct mailbox *m);	/*check if mailbox is empty*/
 bool mailbox_isFull(struct mailbox *m);	/*check if mailbox is full*/
 struct msg_data mailbox_read(struct mailbox *m);	/*read mailbox msg_data*/
 bool mailbox_write(struct mailbox *m, struct msg_data msg);	/*write msg_data to mailbox*/
+int getVacant(int id);	/*return vacant slot*/
+int search_id(int id);
 #endif  //ifndef COM_KMODULE_H

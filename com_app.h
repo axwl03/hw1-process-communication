@@ -8,15 +8,9 @@
 #include <linux/netlink.h>
 #include <unistd.h>
 #define NETLINK_USER 30
-#define MAX_LEN 256
+#define MAX_LEN 300
 
-struct user_msg_info
-{
-    struct nlmsghdr hdr;
-    char buf[MAX_LEN];
-};
-
-int skfd;
+int skfd, own_id;
 socklen_t len = sizeof(struct sockaddr_nl);
 struct nlmsghdr *nlh = NULL;
 struct sockaddr_nl saddr, daddr;
@@ -24,6 +18,7 @@ struct iovec iov;
 struct msghdr msg;
 
 void send_kernel(char *m);
-void recv_kernel(struct user_msg_info *u_info_p);
+void recv_kernel();
+void readline(char *str);
 
 #endif  //ifndef COM_APP_H

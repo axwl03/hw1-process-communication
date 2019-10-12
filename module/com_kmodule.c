@@ -2,14 +2,21 @@
 
 struct sock *nlsk = NULL;
 extern struct net init_net;
+struct mailbox_id arr[MAX_USER];
 
 static int __init com_kmodule_init(void)
 {
+    int i = 0;
     nlsk = (struct sock *)netlink_kernel_create(&init_net, NETLINK_USER, &cfg);
     if(nlsk == NULL)
     {
         printk(KERN_INFO "netlink_kernel_create failed.\n");
         return -1;
+    }
+    for(; i < MAX_USER; ++i)
+    {
+        arr[i].id = 0;
+        arr[i].m = NULL;
     }
     printk("test_netlink_init\n");
     return 0;
@@ -57,26 +64,69 @@ int send_usrmsg(int pid, char *buf, int len)
 static void netlink_recv_msg(struct sk_buff *skb)
 {
     struct nlmsghdr *nlh = NULL;
-    int pid, ret, id;
-    char *umsg = NULL;
-    char type[10], buf[256];
+    int pid, ret, id, temp;
+    char *umsg = NULL, type[10], buf[256], test = 0;
+    struct msg_data *msg;
+    memset(type, 0, sizeof(type));
+    memset(buf, 0, sizeof(buf));
     if(skb->len >= nlmsg_total_size(0))
     {
         nlh = nlmsg_hdr(skb);
         pid = NETLINK_CREDS(skb)->pid;
-        printk(KERN_INFO "pid: %d\n", pid);
         umsg = NLMSG_DATA(nlh);
         printk(KERN_INFO "kernel recv from user: %s\n", umsg);
         if((ret = sscanf(umsg, "Registration. id=%d, type=%10s", &id, type)) == 2)
         {
             //create queue with id and type
-
-            //return success or fail message
-            send_usrmsg(pid, "Success", strlen("Success"));
+            temp = getVacant(id);
+            if(temp == -1) 			//id has been used
+            {
+                send_usrmsg(pid, "Fail", strlen("Fail"));
+                return;
+            }
+            else if(temp >= 0) 		//vacant slot
+            {
+                arr[temp].id = id;
+                if((arr[temp].m = kmalloc(sizeof(struct mailbox), GFP_KERNEL)) == NULL)
+                {
+                    printk("mailbox allocation failed\n");
+                    send_usrmsg(pid, "Fail", strlen("Fail"));
+                    return;
+                }
+                if(strcmp(type, "queued") == 0)
+                    mailbox_init(arr[temp].m, 1);
+                else
+                    mailbox_init(arr[temp].m, 0);
+                send_usrmsg(pid, "Success", strlen("Success"));
+            }
+            else					//full
+                send_usrmsg(pid, "Fail", strlen("Fail"));
         }
-        else if((ret = sscanf(umsg, "Send %d %256s", &id, buf)) == 2) 	//need to handle data>256
+        else if((ret = sscanf(umsg, "Send %d %255s%c", &id, buf, &test)) == 2) 	/*bugs here, probably cause by space charater*/
         {
-
+            if((msg = kmalloc(sizeof(struct msg_data), GFP_KERNEL)) == NULL)
+            {
+                printk("msg_data allocation failed\n");
+                send_usrmsg(pid, "Fail", strlen("Fail"));
+                return;
+            }
+            strcpy(msg->buf, buf);
+            temp = search_id(id);
+            if(temp == -1)
+            {
+                printk("id not exist\n");
+                send_usrmsg(pid, "Fail", strlen("Fail"));
+            }
+            else
+            {
+                mailbox_add(arr[temp].m, msg);
+                send_usrmsg(pid, "Success", strlen("Success"));
+            }
+        }
+        else if(ret == 3) 	//data more than 255bytes
+        {
+            send_usrmsg(pid, "Fail", strlen("Fail"));
+            printk("data more than 255bytes\n");
         }
         else if((ret = sscanf(umsg, "Recv %d", &id)) == 1)
         {
@@ -188,4 +238,23 @@ bool mailbox_write(struct mailbox *m, struct msg_data msg)
     struct msg_data *p = kmalloc(sizeof(msg), GFP_KERNEL);
     *p = msg;
     return mailbox_add(m, p);
+}
+int getVacant(int id)
+{
+    int i = 0;
+    for(; i < MAX_USER; ++i)
+        if(arr[i].id == id)
+            return -1;	//registered
+    for(i = 0; i < MAX_USER; ++i)
+        if(arr[i].id == 0)
+            return i;	//vacant id
+    return -2;	//full
+}
+int search_id(int id)
+{
+    int i = 0;
+    for(; i < MAX_USER; ++i)
+        if(arr[i].id == id)
+            return i;
+    return -1;	//not found
 }
