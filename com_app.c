@@ -56,10 +56,10 @@ int main(int argc, char *argv[])
     nlh->nlmsg_pid = saddr.nl_pid;
     iov.iov_base = (void *)nlh;
     iov.iov_len = nlh->nlmsg_len;
-    msg2.msg_name = (void *)&daddr;
-    msg2.msg_namelen = sizeof(daddr);
-    msg2.msg_iov = &iov;
-    msg2.msg_iovlen = 1;
+    msg.msg_name = (void *)&daddr;
+    msg.msg_namelen = sizeof(daddr);
+    msg.msg_iov = &iov;
+    msg.msg_iovlen = 1;
 
     //registration
     send_kernel(umsg);
@@ -77,32 +77,15 @@ int main(int argc, char *argv[])
     free(nlh);
     return 0;
 }
-void send_kernel(char *msg)
+void send_kernel(char *m)
 {
-    memcpy(NLMSG_DATA(nlh), msg, MAX_LEN);
-    printf("send kernel: %s\n", msg);
-    sendmsg(skfd, &msg2, 0);
-    /*    int ret = sendto(skfd, nlh, nlh->nlmsg_len, 0, (struct sockaddr *)&daddr, sizeof(struct sockaddr_nl));
-        if(!ret)
-        {
-            perror("error sending");
-            close(skfd);
-            exit(1);
-        }
-        printf("send kernel: %s\n", msg);*/
+    memcpy(NLMSG_DATA(nlh), m, MAX_LEN);
+    printf("send kernel: %s\n", m);
+    sendmsg(skfd, &msg, 0);
 }
 void recv_kernel(struct user_msg_info *u_info_p)
 {
     printf("recv kernel:\n");
-    recvmsg(skfd, &msg2, 0);
+    recvmsg(skfd, &msg, 0);
     printf("%s\n", (char *)NLMSG_DATA(nlh));
-    /*memset(u_info_p, 0, sizeof(struct user_msg_info));
-    int ret = recvfrom(skfd, u_info_p, sizeof(struct user_msg_info), 0, (struct sockaddr *)&daddr, &len);
-    if(!ret)
-    {
-        perror("error recv from kernel\n");
-        close(skfd);
-        exit(1);
-    }
-    printf("recv kernel: %s\n", u_info_p->buf);*/
 }

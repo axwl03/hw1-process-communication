@@ -57,20 +57,34 @@ int send_usrmsg(int pid, char *buf, int len)
 static void netlink_recv_msg(struct sk_buff *skb)
 {
     struct nlmsghdr *nlh = NULL;
-    int pid;
+    int pid, ret, id;
     char *umsg = NULL;
-    char *kmsg = "Hello user!!\n";
+    char type[10], buf[256];
     if(skb->len >= nlmsg_total_size(0))
     {
-        //    nlh = nlmsg_hdr(skb);
-        nlh = (struct nlmsghdr *)skb->data;
+        nlh = nlmsg_hdr(skb);
         pid = NETLINK_CREDS(skb)->pid;
         printk(KERN_INFO "pid: %d\n", pid);
         umsg = NLMSG_DATA(nlh);
-        if(umsg)
+        printk(KERN_INFO "kernel recv from user: %s\n", umsg);
+        if((ret = sscanf(umsg, "Registration. id=%d, type=%10s", &id, type)) == 2)
         {
-            printk(KERN_INFO "kernel recv from user: %s\n", umsg);
-            send_usrmsg(pid, kmsg, strlen(kmsg));
+            //create queue with id and type
+
+            //return success or fail message
+            send_usrmsg(pid, "Success", strlen("Success"));
+        }
+        else if((ret = sscanf(umsg, "Send %d %256s", &id, buf)) == 2) 	//need to handle data>256
+        {
+
+        }
+        else if((ret = sscanf(umsg, "Recv %d", &id)) == 1)
+        {
+
+        }
+        else
+        {
+
         }
     }
 }
