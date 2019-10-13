@@ -58,7 +58,6 @@ int send_usrmsg(int pid, char *buf, int len)
 
     memcpy(nlmsg_data(nlh), buf, len);
     ret = netlink_unicast(nlsk, nl_skb, pid, MSG_DONTWAIT);
-    printk(KERN_INFO "ret: %d pid: %d buf: %s\n", ret, pid, buf);
     return ret;
 }
 static void netlink_recv_msg(struct sk_buff *skb)
@@ -74,7 +73,7 @@ static void netlink_recv_msg(struct sk_buff *skb)
         nlh = nlmsg_hdr(skb);
         pid = NETLINK_CREDS(skb)->pid;
         umsg = NLMSG_DATA(nlh);
-        printk(KERN_INFO "kernel recv from user: %s\n", umsg);
+        printk(KERN_INFO "message from user: %s\n", umsg);
         if((ret = sscanf(umsg, "Registration. id=%d, type=%10s", &id, type)) == 2)
         {
             //create queue with id and type
@@ -102,8 +101,9 @@ static void netlink_recv_msg(struct sk_buff *skb)
             else					//full
                 send_usrmsg(pid, "Fail", strlen("Fail"));
         }
-        else if((ret = sscanf(umsg, "Send %d %255s%c", &id, buf, &test)) == 2) 	/*bugs here, probably cause by space charater*/
+        else if((ret = sscanf(umsg, "Send %d %255c%c", &id, buf, &test)) == 2)
         {
+            buf[255] = '\0';
             if((msg = kmalloc(sizeof(struct msg_data), GFP_KERNEL)) == NULL)
             {
                 printk("msg_data allocation failed\n");
@@ -119,8 +119,9 @@ static void netlink_recv_msg(struct sk_buff *skb)
             }
             else
             {
-                mailbox_add(arr[temp].m, msg);
-                send_usrmsg(pid, "Success", strlen("Success"));
+                if(mailbox_add(arr[temp].m, msg))
+                    send_usrmsg(pid, "Success", strlen("Success"));
+                else send_usrmsg(pid, "Fail", strlen("Fail"));
             }
         }
         else if(ret == 3) 	//data more than 255bytes
@@ -130,11 +131,23 @@ static void netlink_recv_msg(struct sk_buff *skb)
         }
         else if((ret = sscanf(umsg, "Recv %d", &id)) == 1)
         {
-
+            struct msg_data msg2;
+            temp = search_id(id);
+            msg2 = mailbox_read(arr[temp].m);
+            if(strcmp(msg2.buf, "") == 0)
+                send_usrmsg(pid, "Fail", strlen("Fail"));
+            else send_usrmsg(pid, msg2.buf, strlen(msg2.buf));
+        }
+        else if((ret = sscanf(umsg, "exit %d", &id)) == 1)
+        {
+            temp = search_id(id);
+            mailbox_clear(arr[temp].m);
+            arr[temp].id = 0;
         }
         else
         {
-
+            printk("user message \"%s\" not recognized\n", umsg);
+            send_usrmsg(pid, "Fail", strlen("Fail"));
         }
     }
 }
@@ -148,24 +161,35 @@ void mailbox_init(struct mailbox *m, unsigned char type)
 bool mailbox_add(struct mailbox *m, struct msg_data *msg)
 {
     msg->next = NULL;
-    if(mailbox_isEmpty(m))
+    if(m->type == 1) 	//queued
     {
+        if(mailbox_isEmpty(m))
+        {
+            m->msg_data_head = msg;
+            m->msg_data_tail = msg;
+        }
+        else if(mailbox_isFull(m))
+        {
+            printk(KERN_INFO "size %d: add fail.\n", m->msg_data_count);
+            return false;
+        }
+        else
+        {
+            m->msg_data_tail->next = msg;
+            m->msg_data_tail = msg;
+        }
+        m->msg_data_count++;
+        return true;
+    }
+    else 				//unqueued
+    {
+        if(!mailbox_isEmpty(m))
+            mailbox_del(m);
         m->msg_data_head = msg;
         m->msg_data_tail = msg;
+        m->msg_data_count++;
+        return true;
     }
-    else if(mailbox_isFull(m))
-    {
-        printk(KERN_INFO "size %d: add fail.\n", m->msg_data_count);
-        return false;
-    }
-    else
-    {
-        m->msg_data_tail->next = msg;
-        m->msg_data_tail = msg;
-    }
-    m->msg_data_count++;
-    printk(KERN_INFO "size %d: add success.\n", m->msg_data_count);
-    return true;
 }
 bool mailbox_del(struct mailbox *m)
 {
@@ -176,23 +200,10 @@ bool mailbox_del(struct mailbox *m)
         m->msg_data_head = temp->next;
         kfree(temp);
         m->msg_data_count--;
-        printk(KERN_INFO "size %d: remove success.\n", m->msg_data_count);
         return true;
     }
     else
-    {
-        printk(KERN_INFO "size 0: mailbox empty.\n");
         return false;
-    }
-}
-void mailbox_print(struct mailbox *m)
-{
-    struct msg_data *temp = m->msg_data_head;
-    int index = 1;
-    printk(KERN_INFO "print mailbox:\n");
-    for(; temp != NULL; temp = temp->next)
-        printk(KERN_INFO "index: %d. content: %s", index++, temp->buf);
-    printk(KERN_INFO "\n");
 }
 bool mailbox_isEmpty(struct mailbox *m)
 {
@@ -215,8 +226,6 @@ struct msg_data mailbox_read(struct mailbox *m)
     {
         msg = *(m->msg_data_head);
         msg.next = NULL;
-        if(!mailbox_isEmpty(m))
-            mailbox_del(m);
     }
     else 				/*queue*/
     {
@@ -233,11 +242,10 @@ struct msg_data mailbox_read(struct mailbox *m)
     }
     return msg;
 }
-bool mailbox_write(struct mailbox *m, struct msg_data msg)
+void mailbox_clear(struct mailbox *m)
 {
-    struct msg_data *p = kmalloc(sizeof(msg), GFP_KERNEL);
-    *p = msg;
-    return mailbox_add(m, p);
+    for(; m->msg_data_count > 0;)
+        mailbox_del(m);
 }
 int getVacant(int id)
 {

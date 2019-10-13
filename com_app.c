@@ -64,22 +64,32 @@ int main(int argc, char *argv[])
     recv_kernel();
     if(strcmp("Success", (char *)NLMSG_DATA(nlh)) == 0)
         own_id = atoi(argv[1]);
+    else exit(1);
 
     char test_str[10];
     int ret = 0;
     while(1)
     {
         readline(umsg);
-        if((ret = sscanf(umsg, "Send %*d %10s", test_str)))
+        if((ret = sscanf(umsg, "Send %*d %9c", test_str)))
         {
             send_kernel(umsg);
             recv_kernel();
         }
+        else if(strcmp(umsg, "Recv") == 0)
+        {
+            sprintf(umsg, "Recv %d", own_id);
+            send_kernel(umsg);
+            recv_kernel();
+        }
         else if(strcmp(umsg, "exit") == 0)
+        {
+            sprintf(umsg, "exit %d", own_id);
+            send_kernel(umsg);
             break;
-
-        //recv
-        //recv data or "Fail"
+        }
+        else
+            printf("invalid message, try again.\n");
     }
     close(skfd);
     free(nlh);
@@ -88,20 +98,18 @@ int main(int argc, char *argv[])
 void send_kernel(char *m)
 {
     memcpy(NLMSG_DATA(nlh), m, MAX_LEN);
-    printf("send kernel: %s\n", m);
     sendmsg(skfd, &msg, 0);
 }
 void recv_kernel()
 {
     memset(NLMSG_DATA(nlh), 0, MAX_LEN);
-    printf("recv kernel:\n");
     recvmsg(skfd, &msg, 0);
     printf("%s\n", (char *)NLMSG_DATA(nlh));
 }
 void readline(char *str)
 {
     char ch;
-    for(int i = 0; i < 300; ++i)
+    for(int i = 0; i < MAX_LEN; ++i)
     {
         ch = getchar();
         if(ch == '\n')
