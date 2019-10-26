@@ -64,7 +64,7 @@ static void netlink_recv_msg(struct sk_buff *skb)
 {
     struct nlmsghdr *nlh = NULL;
     int pid, ret, id, temp;
-    char *umsg = NULL, type[10], buf[256], test = 0;
+    char *umsg = NULL, type[10], buf[256], test[1], test2 = 0;
     struct msg_data *msg;
     memset(type, 0, sizeof(type));
     memset(buf, 0, sizeof(buf));
@@ -101,7 +101,7 @@ static void netlink_recv_msg(struct sk_buff *skb)
             else					//full
                 send_usrmsg(pid, "Fail", strlen("Fail"));
         }
-        else if((ret = sscanf(umsg, "Send %d %255c%c", &id, buf, &test)) == 2)
+        else if((ret = sscanf(umsg, "Send %d%1[ ]%255c%c", &id, test, buf, &test2)) == 3)
         {
             buf[255] = '\0';
             if((msg = kmalloc(sizeof(struct msg_data), GFP_KERNEL)) == NULL)
@@ -124,7 +124,7 @@ static void netlink_recv_msg(struct sk_buff *skb)
                 else send_usrmsg(pid, "Fail", strlen("Fail"));
             }
         }
-        else if(ret == 3) 	//data more than 255bytes
+        else if(ret == 4) 	//data more than 255bytes
         {
             send_usrmsg(pid, "Fail", strlen("Fail"));
             printk("data more than 255bytes\n");
