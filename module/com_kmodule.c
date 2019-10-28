@@ -99,7 +99,10 @@ static void netlink_recv_msg(struct sk_buff *skb)
                 send_usrmsg(pid, "Success", strlen("Success"));
             }
             else					//full
+            {
+                printk("registration failed: mailbox arr full\n");
                 send_usrmsg(pid, "Fail", strlen("Fail"));
+            }
         }
         else if((ret = sscanf(umsg, "Send %d%1[ ]%255c%c", &id, test, buf, &test2)) == 3)
         {

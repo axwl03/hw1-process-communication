@@ -6,7 +6,7 @@
 #include <linux/netlink.h>
 #include <linux/slab.h>
 #define NETLINK_USER 30
-#define MAX_USER 10
+#define MAX_USER 50
 
 struct mailbox
 {
